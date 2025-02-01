@@ -95,7 +95,7 @@ class Classifier_selector():
             'gamma': ['scale', 'auto', 0.1, 0.01]
         },
         'mpa': {
-            'learning_rate' :  [1.e-05, 1.e-04, 1.e-03, 1.e-02, 1.e-01, 1.e+00] ,
+            'learning_rate' :  [1.e-06, 1.e-05, 1.e-04, 1.e-03, 1.e-02, 1.e-01, 1.e+00] ,
             'epochs': [1, 5, 10, 50, 75, 100, 150, 350],
             'verbose': [False],
             'random_state':[46]
