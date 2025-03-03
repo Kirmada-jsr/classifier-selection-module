@@ -24,21 +24,6 @@ class Classifier_selector():
     ax1.set_xlabel('Predicted')
     ax1.set_ylabel('Actual')
 
-    # Plot 2: Parameter Performance
-    ax2 = plt.subplot(122)
-    cv_results = pd.DataFrame(grid_search.cv_results_)
-    top_scores_idx = cv_results['rank_test_score'].argsort()[:5]
-    top_scores = cv_results.iloc[top_scores_idx]
-
-    # Create parameter performance plot
-    param_scores = pd.DataFrame({
-        'Score': top_scores['mean_test_score'],
-        'Parameters': [str(params) for params in
-                      top_scores['params'].apply(lambda x: {k: v for k, v in x.items()})]
-    })
-    param_scores.plot(kind='bar', x='Parameters', y='Score', ax=ax2)
-    ax2.set_title('Top 5 Parameter Combinations')
-    ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45, ha='right')
     plt.tight_layout()
 
     return fig
@@ -58,50 +43,129 @@ class Classifier_selector():
     Parameters:
     X_train, X_test: Training and test features
     y_train, y_test: Training and test labels
-    classifier_name: str, options: 'knn', 'perceptron', 'rf', 'dt', 'svm'
+    classifier_name: str, options: 'knn', 'perceptron', 'rf', 'dt', 'svm', 'ab', 'cb', 'ert', 'gb', 'lgbm', 'xgb'
     custom_param_grid: dict, optional custom parameter grid
 
     Returns:
     dict: Best model, parameters, and performance metrics
     """
+    # Import necessary classifiers
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.linear_model import Perceptron
+    from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.svm import SVC
+    from catboost import CatBoostClassifier
+    from lightgbm import LGBMClassifier
+    from xgboost import XGBClassifier
+
     # Define default parameter grids for each classifier
     default_param_grids = {
         'knn': {
-            'n_neighbors': [3, 5, 7, 9, 11],
+            'n_neighbors': [3, 5, 7, 11],
             'weights': ['uniform', 'distance'],
-            'metric': ['euclidean', 'manhattan']
+            'metric': ['euclidean', 'manhattan'],
+            'algorithm': ['auto', 'ball_tree', 'kd_tree']
         },
         'perceptron': {
-            'penalty': [None, 'l1', 'l2', 'elasticnet'],
+            'penalty': [None, 'l1', 'l2'],
             'alpha': [0.0001, 0.001, 0.01, 0.1],
-            'max_iter': [1000],
-            'eta0': [0.1, 0.5, 1.0]
-        },
+            'max_iter': [500, 1000],
+            'tol': [1e-3, 1e-4],
+            'early_stopping': [True],
+            'validation_fraction': [0.1]
+            },
         'rf': {
-            'n_estimators': [100, 200, 300],
-            'max_depth': [10, 20, 30, None],
-            'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4]
-        },
-        'dt': {
-            'max_depth': [None, 10, 20, 30],
+             'n_estimators': [100, 200, 500],
+            'max_depth': [10, 20, 50, None],
             'min_samples_split': [2, 5, 10],
             'min_samples_leaf': [1, 2, 4],
-            'criterion': ['gini', 'entropy']
+            'max_features': ['sqrt', 'log2', 0.8],
+            'bootstrap': [True],
+            'criterion': ['gini', 'entropy'],
+            'class_weight': ['balanced', None]
+        },
+        'dt': {
+            'max_depth': [None, 10, 20, 30, 40, 50],
+            'min_samples_split': [2, 5, 10, 20],
+            'min_samples_leaf': [1, 2, 4, 8],
+            'criterion': ['gini', 'entropy', 'log_loss'],
+            'splitter': ['best', 'random'],
+            'max_features': ['sqrt', 'log2', None],
+            'class_weight': ['balanced', None],
+            'min_impurity_decrease': [0.0, 0.01, 0.05]
         },
         'svm': {
-            'C': [0.1, 1, 10],
-            'kernel': ['rbf', 'linear'],
-            'gamma': ['scale', 'auto', 0.1, 0.01]
+            'C': [0.1, 1, 10, 100],
+            'kernel': ['linear', 'poly', 'rbf'],
+            'gamma': ['scale', 0.001, 0.01, 0.1],  # No 'auto'
+            'degree': [2, 3],  # Only for poly
+            'coef0': [0.0, 0.5],  # Only for poly/sigmoid
+            'class_weight': ['balanced', None]
         },
         'mpa': {
-            'learning_rate' :  [1.e-06, 1.e-05, 1.e-04, 1.e-03, 1.e-02, 1.e-01, 1.e+00] ,
+            'learning_rate': [1.e-06, 1.e-05, 1.e-04, 1.e-03, 1.e-02, 1.e-01, 1.e+00],
             'epochs': [1, 5, 10, 50, 75, 100, 150, 350],
             'verbose': [False],
-            'random_state':[46]
+            'random_state': [46]
+        },
+        'ab': {
+            'n_estimators': [50, 100, 200, 300],
+            'learning_rate': [0.01, 0.1, 0.5],
+            'algorithm': ['SAMME.R']
+        },
+        'cb': {
+            'iterations': [100, 200, 500],
+            'learning_rate': [0.03, 0.05, 0.1],
+            'depth': [4, 6, 8],
+            'l2_leaf_reg': [1, 5, 10],
+            'bagging_temperature': [0, 1],
+            'boosting_type': ['Ordered', 'Plain']
+        },
+        'ert': {
+            'n_estimators': [100, 200, 500],
+            'max_depth': [None, 10, 30],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4],
+            'max_features': ['sqrt', 0.5, 0.7],
+            'criterion': ['gini', 'entropy'],
+            'class_weight': ['balanced', None]
+        },
+        'gb': {
+            'n_estimators': [100, 200, 500],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'max_depth': [3, 5, 7],
+            'min_samples_split': [2, 5, 10],
+            'subsample': [0.7, 0.9],
+            'criterion': ['friedman_mse']
+        },
+        'lgbm': {
+            'n_estimators': [100, 200, 500, 1000],
+            'learning_rate': [0.01, 0.05, 0.1, 0.2],
+            'num_leaves': [31, 50, 100, 200, 300],
+            'max_depth': [-1, 5, 10, 15, 20, 25],  # -1 means no limit
+            'min_child_samples': [5, 10, 20, 50, 100],
+            'subsample': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'colsample_bytree': [0.6, 0.7, 0.8, 0.9, 1.0],
+            'reg_alpha': [0, 0.1, 0.5, 1.0],
+            'reg_lambda': [0, 0.1, 0.5, 1.0],
+            'min_split_gain': [0, 0.1, 0.2, 0.5],
+            'boosting_type': ['gbdt', 'dart', 'goss'],
+            'objective': ['binary', 'multiclass'],
+            'metric': ['multi_logloss', 'multi_error', None],
+            'class_weight': ['balanced', None]
+        },
+        'xgb': {
+            'n_estimators': [100, 200, 500],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'max_depth': [3, 5, 7],
+            'gamma': [0, 0.1, 0.3],
+            'subsample': [0.7, 0.9],
+            'colsample_bytree': [0.7, 0.9],
+            'reg_alpha': [0, 0.1, 1.0],
+            'booster': ['gbtree', 'dart']
         }
     }
-
     # Dictionary mapping classifier names to their classes
     classifiers = {
         'knn': KNeighborsClassifier(),
@@ -109,7 +173,13 @@ class Classifier_selector():
         'rf': RandomForestClassifier(),
         'dt': DecisionTreeClassifier(),
         'svm': SVC(),
-        'mpa': mpa()
+        'mpa': mpa(),
+        'ab': AdaBoostClassifier(),
+        'cb': CatBoostClassifier(verbose=0),
+        'ert': ExtraTreesClassifier(),
+        'gb': GradientBoostingClassifier(),
+        'lgbm': LGBMClassifier(verbose=-1),
+        'xgb': XGBClassifier(verbosity=0)
     }
 
     # Validate classifier name
@@ -124,6 +194,13 @@ class Classifier_selector():
     # Get classifier and parameter grid
     classifier = classifiers[classifier_name]
     param_grid = custom_param_grid if custom_param_grid else default_param_grids[classifier_name]
+
+    # For resource-intensive parameter grids, consider implementing a more efficient approach
+    if len(param_grid) > 5 and not custom_param_grid:
+        print(f"Warning: Large parameter grid for {classifier_name}. Consider using RandomizedSearchCV for faster results.")
+        # Optional: Convert to RandomizedSearchCV instead for very large grids
+        # search_cv = RandomizedSearchCV(estimator=classifier, param_distributions=param_grid,
+        #                               n_iter=100, cv=5, n_jobs=-1, scoring='f1', verbose=1)
 
     # Perform grid search with cross-validation
     grid_search = GridSearchCV(
