@@ -9,7 +9,6 @@ from sklearn.linear_model import Perceptron
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
-from mpa import mpa
 from sklearn.metrics import matthews_corrcoef
 from sklearn.metrics import roc_curve, auc  # Add to imports
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
