@@ -121,12 +121,6 @@ class Classifier_selector():
             'coef0': [0.0, 0.5],  # Only for poly/sigmoid
             'class_weight': ['balanced', None]
         },
-        'mpa': {
-            'learning_rate': [1.e-06, 1.e-05, 1.e-04, 1.e-03, 1.e-02, 1.e-01, 1.e+00],
-            'epochs': [1, 5, 10, 50, 75, 100, 150, 350],
-            'verbose': [False],
-            'random_state': [46]
-        },
         'ab': {
             'n_estimators': [50, 100, 200, 300],
             'learning_rate': [0.01, 0.1, 0.5],
