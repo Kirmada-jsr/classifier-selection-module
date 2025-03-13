@@ -192,7 +192,6 @@ class Classifier_selector():
         'rf': RandomForestClassifier(),
         'dt': DecisionTreeClassifier(),
         'svm': SVC(probability=True),
-        'mpa': mpa(),
         'ab': AdaBoostClassifier(),
         'cb': CatBoostClassifier(verbose=0),
         'ert': ExtraTreesClassifier(),
