@@ -10,7 +10,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import SVC
 from mpa import mpa
-from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import roc_curve, auc  # Add to imports
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 class Classifier_selector():
   def create_visualization(self, grid_search, conf_matrix, y_test, y_pred):
@@ -24,8 +26,25 @@ class Classifier_selector():
     ax1.set_xlabel('Predicted')
     ax1.set_ylabel('Actual')
 
-    plt.tight_layout()
+    # Plot 2: ROC-AUC Curve
+    ax2 = plt.subplot(122)
+    best_model = grid_search.best_estimator_
+    if hasattr(best_model, 'predict_proba'):  # Check if model gives probs
+        y_prob = best_model.predict_proba(self.X_test_scaled)[:, 1]  # Positive class prob
+        fpr, tpr, _ = roc_curve(y_test, y_prob)
+        roc_auc = auc(fpr, tpr)
+        ax2.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+        ax2.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        ax2.set_xlim([0.0, 1.0])
+        ax2.set_ylim([0.0, 1.05])
+        ax2.set_xlabel('False Positive Rate')
+        ax2.set_ylabel('True Positive Rate')
+        ax2.set_title('ROC-AUC Curve')
+        ax2.legend(loc="lower right")
+    else:
+        ax2.text(0.5, 0.5, 'No ROC-AUC (No Probabilities)', ha='center', va='center')
 
+    plt.tight_layout()
     return fig
 
   def get_feature_importances(self, model, feature_names):
@@ -112,7 +131,7 @@ class Classifier_selector():
         'ab': {
             'n_estimators': [50, 100, 200, 300],
             'learning_rate': [0.01, 0.1, 0.5],
-            'algorithm': ['SAMME.R']
+            'algorithm': ['SAMME']
         },
         'cb': {
             'iterations': [100, 200, 500],
@@ -172,7 +191,7 @@ class Classifier_selector():
         'perceptron': Perceptron(),
         'rf': RandomForestClassifier(),
         'dt': DecisionTreeClassifier(),
-        'svm': SVC(),
+        'svm': SVC(probability=True),
         'mpa': mpa(),
         'ab': AdaBoostClassifier(),
         'cb': CatBoostClassifier(verbose=0),
@@ -189,39 +208,40 @@ class Classifier_selector():
     # Scale the features
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    self.X_test_scaled = scaler.transform(X_test)
 
     # Get classifier and parameter grid
     classifier = classifiers[classifier_name]
     param_grid = custom_param_grid if custom_param_grid else default_param_grids[classifier_name]
 
     # For resource-intensive parameter grids, consider implementing a more efficient approach
-    if len(param_grid) > 5 and not custom_param_grid:
-        print(f"Warning: Large parameter grid for {classifier_name}. Consider using RandomizedSearchCV for faster results.")
+    if len(param_grid) > 5:
+        print(f"Warning: Large parameter grid for {classifier_name}. Switching to RandomizedSearchCV")
         # Optional: Convert to RandomizedSearchCV instead for very large grids
-        # search_cv = RandomizedSearchCV(estimator=classifier, param_distributions=param_grid,
-        #                               n_iter=100, cv=5, n_jobs=-1, scoring='f1', verbose=1)
-
-    # Perform grid search with cross-validation
-    grid_search = GridSearchCV(
+        grid_search = RandomizedSearchCV(estimator=classifier, param_distributions=param_grid,
+                                       n_iter=100, cv=5, n_jobs=2, scoring='f1', verbose=1)
+    else:
+       grid_search = GridSearchCV(
         estimator=classifier,
         param_grid=param_grid,
         cv=5,
-        n_jobs=-1,
+        n_jobs=2,
         scoring='f1',
         verbose=1
     )
+    print("n_jobs = 2")
 
     # Fit grid search
     grid_search.fit(X_train_scaled, y_train)
 
     # Make predictions
     best_model = grid_search.best_estimator_
-    y_pred = best_model.predict(X_test_scaled)
+    y_pred = best_model.predict(self.X_test_scaled)
 
     # Calculate metrics
     conf_matrix = confusion_matrix(y_test, y_pred)
     class_report = classification_report(y_test, y_pred, output_dict=True)
+    mcc_score = matthews_corrcoef(y_test, y_pred)
 
     # Create visualizations
     fig = self.create_visualization(grid_search, conf_matrix, y_test, y_pred)
@@ -234,6 +254,7 @@ class Classifier_selector():
         'classification_report': class_report,
         'confusion_matrix': conf_matrix,
         'visualization': fig,
+        'mcc' :mcc_score,
         'feature_importances': self.get_feature_importances(best_model, X_train.columns)
     }
 
