@@ -217,11 +217,11 @@ class Classifier_selector():
         estimator=classifier,
         param_grid=param_grid,
         cv=5,
-        n_jobs=2,
+        n_jobs=-1,
         scoring='f1',
         verbose=1
     )
-    print("n_jobs = 2")
+    print("n_jobs = -1")
 
     # Fit grid search
     grid_search.fit(X_train_scaled, y_train)
