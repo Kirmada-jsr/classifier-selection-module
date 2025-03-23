@@ -211,7 +211,7 @@ class Classifier_selector():
         print(f"Warning: Large parameter grid for {classifier_name}. Switching to RandomizedSearchCV")
         # Optional: Convert to RandomizedSearchCV instead for very large grids
         grid_search = RandomizedSearchCV(estimator=classifier, param_distributions=param_grid,
-                                       n_iter=100, cv=5, n_jobs=2, scoring='f1', verbose=1)
+                                       n_iter=100, cv=5, n_jobs=-1, scoring='f1', verbose=1)
     else:
        grid_search = GridSearchCV(
         estimator=classifier,
