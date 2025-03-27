@@ -67,6 +67,12 @@ class Classifier_selector():
     Returns:
     dict: Best model, parameters, and performance metrics
     """
+    try:
+        import torch
+        gpu_available = torch.cuda.is_available()
+    except ImportError:
+        gpu_available = False
+
     # Import necessary classifiers
     from sklearn.neighbors import KNeighborsClassifier
     from sklearn.linear_model import Perceptron
@@ -186,11 +192,11 @@ class Classifier_selector():
         'dt': DecisionTreeClassifier(),
         'svm': SVC(probability=True),
         'ab': AdaBoostClassifier(),
-        'cb': CatBoostClassifier(verbose=0),
+        'cb': CatBoostClassifier(verbose=0, task_type='GPU' if gpu_available else 'CPU'),
         'ert': ExtraTreesClassifier(),
         'gb': GradientBoostingClassifier(),
-        'lgbm': LGBMClassifier(verbose=-1),
-        'xgb': XGBClassifier(verbosity=0)
+        'lgbm': LGBMClassifier(verbose=-1, device='gpu' if gpu_available else 'cpu'),
+        'xgb': XGBClassifier(verbosity=0, tree_method='gpu_hist' if gpu_available else 'hist')
     }
 
     # Validate classifier name
