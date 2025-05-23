@@ -256,4 +256,4 @@ class Classifier_selector():
         'feature_importances': self.get_feature_importances(best_model, X_train.columns)
     }
 
-    return results
+    return results, scaler
